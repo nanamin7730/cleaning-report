@@ -34,6 +34,19 @@ export default function PDFPage() {
       })
   }, [id])
 
+  // PDFファイル名（document.title）を「YYYY-MM-DD_物件名」に設定
+  useEffect(() => {
+    if (!report) return
+    const originalTitle = document.title
+    const d = new Date(report.cleaned_at)
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const propName = report.properties?.name ?? '清掃報告書'
+    document.title = `${yyyy}-${mm}-${dd}_${propName}`
+    return () => { document.title = originalTitle }
+  }, [report])
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
