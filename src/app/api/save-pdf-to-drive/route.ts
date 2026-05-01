@@ -252,30 +252,87 @@ export async function POST(req: NextRequest) {
     const drive = google.drive({ version: 'v3', auth })
 
     const date = new Date(report.cleaned_at)
-    const yearMonth = `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, '0')}月`
+    const yyyy = date.getFullYear()
+    const month = date.getMonth() + 1 // 1〜12
+    const mm = String(month).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
     const propertyName = (report as any).properties?.name ?? '不明物件'
 
-    const yearFolderId = await ensureFolder(drive, yearMonth, process.env.GOOGLE_DRIVE_FOLDER_ID!)
-    const propertyFolderId = await ensureFolder(drive, propertyName, yearFolderId)
+    // 専用フォルダに分けたい物件名のリスト（02_log(PDF) 直下の物件名フォルダに保存）
+    const SPECIAL_PROPERTIES = ['フレンドリーハイツ']
 
-    const yyyy = date.getFullYear()
-    const mm = String(date.getMonth() + 1).padStart(2, '0')
-    const dd = String(date.getDate()).padStart(2, '0')
+    let parentFolderId: string
+
+    if (SPECIAL_PROPERTIES.includes(propertyName)) {
+      // 物件専用フォルダに保存
+      parentFolderId = await ensureFolder(
+        drive,
+        propertyName,
+        process.env.GOOGLE_DRIVE_FOLDER_ID!
+      )
+    } else {
+      // 既存の月フォルダ命名揺れに対応：「YYYY.M」「YYYY.MM」両方を検索、
+      // 見つからなければ「YYYY.M」（ゼロ埋めなし）で新規作成
+      const candidates = [
+        `${yyyy}.${month}`, // 2026.4
+        `${yyyy}.${mm}`,    // 2026.04
+      ]
+      let monthFolderId: string | null = null
+      for (const name of candidates) {
+        const safe = name.replace(/'/g, "\\'")
+        const res = await drive.files.list({
+          q: `name='${safe}' and '${process.env.GOOGLE_DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id, name)',
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+        })
+        if (res.data.files && res.data.files.length > 0) {
+          monthFolderId = res.data.files[0].id!
+          break
+        }
+      }
+      if (!monthFolderId) {
+        monthFolderId = await ensureFolder(drive, candidates[0], process.env.GOOGLE_DRIVE_FOLDER_ID!)
+      }
+      parentFolderId = monthFolderId
+    }
+
     const fileName = `${yyyy}-${mm}-${dd}_${propertyName}.pdf`
 
-    const uploadRes = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [propertyFolderId],
-        mimeType: 'application/pdf',
-      },
-      media: {
-        mimeType: 'application/pdf',
-        body: Readable.from(Buffer.from(pdfBuffer)),
-      },
-      fields: 'id, webViewLink',
+    // 同名ファイルがあれば上書き（再アップロード対応）
+    const existing = await drive.files.list({
+      q: `name='${fileName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and trashed=false`,
+      fields: 'files(id)',
       supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     })
+
+    let uploadRes
+    if (existing.data.files && existing.data.files.length > 0) {
+      uploadRes = await drive.files.update({
+        fileId: existing.data.files[0].id!,
+        media: {
+          mimeType: 'application/pdf',
+          body: Readable.from(Buffer.from(pdfBuffer)),
+        },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true,
+      })
+    } else {
+      uploadRes = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: [parentFolderId],
+          mimeType: 'application/pdf',
+        },
+        media: {
+          mimeType: 'application/pdf',
+          body: Readable.from(Buffer.from(pdfBuffer)),
+        },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true,
+      })
+    }
 
     return NextResponse.json({
       success: true,
