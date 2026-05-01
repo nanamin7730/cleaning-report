@@ -211,6 +211,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. 報告書データを取得
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY is not set')
+      return NextResponse.json({ error: 'Server config: SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
+    }
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -222,7 +226,13 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error || !report) {
-      return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+      console.error('Supabase fetch error:', { reportId, error })
+      return NextResponse.json({
+        error: 'Report not found',
+        detail: error?.message,
+        code: error?.code,
+        reportId,
+      }, { status: 404 })
     }
 
     // 2. PDF を生成（puppeteer + chromium）
