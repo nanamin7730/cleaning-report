@@ -32,7 +32,7 @@ export default function NavBar() {
   return (
     <>
       {/* PC 上部ナビ */}
-      <header className="hidden md:flex bg-white border-b border-gray-200 px-6 py-3 items-center justify-between">
+      <header className="hidden md:flex print:hidden bg-white border-b border-gray-200 px-6 py-3 items-center justify-between">
         <Link href="/reports" className="text-lg font-bold text-gray-800 flex items-center gap-2">
           清掃報告書
           {isAdmin && (
@@ -64,7 +64,7 @@ export default function NavBar() {
       </header>
 
       {/* スマホ 下部タブバー */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
+      <nav className="md:hidden print:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
         <Link
           href="/reports"
           className={`flex-1 flex flex-col items-center py-3 text-xs gap-1 ${

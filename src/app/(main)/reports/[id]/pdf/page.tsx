@@ -51,7 +51,7 @@ export default function PDFPage() {
       {/* 印刷時のスタイル */}
       <style>{`
         @media print {
-          .no-print { display: none !important; }
+          .no-print, header, nav { display: none !important; }
           .print-area {
             margin: 0 !important;
             padding: 0 !important;
