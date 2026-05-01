@@ -253,12 +253,15 @@ export async function POST(req: NextRequest) {
     })
     await browser.close()
 
-    // 3. Google Drive にアップロード
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY!),
-      scopes: ['https://www.googleapis.com/auth/drive'],
+    // 3. Google Drive にアップロード（OAuth ユーザー認証）
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_OAUTH_CLIENT_ID,
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    )
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
     })
-    const drive = google.drive({ version: 'v3', auth })
+    const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
     const date = new Date(report.cleaned_at)
     const yyyy = date.getFullYear()
