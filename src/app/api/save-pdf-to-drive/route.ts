@@ -61,6 +61,12 @@ function buildHtml(report: any): string {
 <head>
   <meta charset="utf-8" />
   <title>清掃報告書</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
   <style>
     @page { margin: 8mm; size: A4; }
     * { box-sizing: border-box; }
@@ -246,6 +252,10 @@ export async function POST(req: NextRequest) {
     })
     const page = await browser.newPage()
     await page.setContent(buildHtml(report), { waitUntil: 'networkidle0' })
+    // 日本語フォントの読み込み完了を待つ
+    await page.evaluate(async () => {
+      await (document as any).fonts.ready
+    })
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
