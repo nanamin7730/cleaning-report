@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Property, InspectionItem } from '@/lib/types'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, Camera, Upload, X, CheckCircle } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronLeft, Camera, Image as ImageIcon, X, CheckCircle } from 'lucide-react'
 import Image from 'next/image'
+import { compressImage } from '@/lib/compressImage'
 
 type ItemDraft = {
   inspection_item_id: string
@@ -17,26 +18,31 @@ type ItemDraft = {
   item_notes: string
 }
 
-export default function NewReportPage() {
+function NewReportInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialPropertyId = searchParams.get('propertyId') ?? ''
   const supabase = createClient()
   const [properties, setProperties] = useState<Property[]>([])
-  const [selectedPropertyId, setSelectedPropertyId] = useState('')
+  const [selectedPropertyId, setSelectedPropertyId] = useState(initialPropertyId)
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([])
   const [cleanedAt, setCleanedAt] = useState(new Date().toISOString().split('T')[0])
   const [workContent, setWorkContent] = useState('掃き拭き掃除')
   const [notes, setNotes] = useState('')
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([])
   const [saving, setSaving] = useState(false)
-  const [step, setStep] = useState<'select' | 'photos'>('select')
 
   useEffect(() => {
     supabase.from('properties').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => setProperties(data ?? []))
+      .then(({ data }) => {
+        setProperties(data ?? [])
+        if (initialPropertyId) {
+          loadInspectionItems(initialPropertyId)
+        }
+      })
   }, [])
 
-  const handlePropertyChange = async (propId: string) => {
-    setSelectedPropertyId(propId)
+  const loadInspectionItems = async (propId: string) => {
     const { data } = await supabase
       .from('inspection_items')
       .select('*')
@@ -55,16 +61,23 @@ export default function NewReportPage() {
     })))
   }
 
-  const handleFileChange = (
+  const handlePropertyChange = async (propId: string) => {
+    setSelectedPropertyId(propId)
+    if (propId) await loadInspectionItems(propId)
+  }
+
+  const handleFileChange = async (
     index: number,
     type: 'before' | 'after',
     file: File | null
   ) => {
     if (!file) return
-    const preview = URL.createObjectURL(file)
+    // 圧縮
+    const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
+    const preview = URL.createObjectURL(compressed)
     setItemDrafts((prev) => prev.map((d, i) =>
       i === index
-        ? { ...d, [`${type}_file`]: file, [`${type}_preview`]: preview }
+        ? { ...d, [`${type}_file`]: compressed, [`${type}_preview`]: preview }
         : d
     ))
   }
@@ -78,7 +91,7 @@ export default function NewReportPage() {
   }
 
   const uploadPhoto = async (file: File, path: string) => {
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('report-photos')
       .upload(path, file, { upsert: true })
     if (error) throw error
@@ -160,10 +173,11 @@ export default function NewReportPage() {
     label: string
     color: 'blue' | 'green'
   }) => {
-    const inputRef = useRef<HTMLInputElement>(null)
+    const cameraRef = useRef<HTMLInputElement>(null)
+    const albumRef = useRef<HTMLInputElement>(null)
     const colorClass = color === 'blue'
-      ? 'bg-blue-50 border-blue-200 text-blue-600'
-      : 'bg-green-50 border-green-200 text-green-600'
+      ? 'border-blue-200 text-blue-600'
+      : 'border-green-200 text-green-600'
 
     return (
       <div className="flex-1">
@@ -188,20 +202,41 @@ export default function NewReportPage() {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 ${colorClass}`}
-          >
-            <Camera size={24} />
-            <span className="text-xs">写真を選択</span>
-          </button>
+          <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+            >
+              <Camera size={16} /> カメラで撮影
+            </button>
+            <button
+              type="button"
+              onClick={() => albumRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+            >
+              <ImageIcon size={16} /> アルバムから選択
+            </button>
+          </div>
         )}
+        {/* カメラ用 */}
         <input
-          ref={inputRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) onChange(f)
+            e.target.value = ''
+          }}
+        />
+        {/* アルバム用 */}
+        <input
+          ref={albumRef}
+          type="file"
+          accept="image/*"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -293,14 +328,14 @@ export default function NewReportPage() {
                     preview={draft.before_preview}
                     onChange={(f) => handleFileChange(i, 'before', f)}
                     onClear={() => clearPhoto(i, 'before')}
-                    label="BEFORE"
+                    label="作業前"
                     color="blue"
                   />
                   <PhotoUploader
                     preview={draft.after_preview}
                     onChange={(f) => handleFileChange(i, 'after', f)}
                     onClear={() => clearPhoto(i, 'after')}
-                    label="AFTER"
+                    label="作業後"
                     color="green"
                   />
                 </div>
@@ -338,5 +373,13 @@ export default function NewReportPage() {
         </button>
       </form>
     </div>
+  )
+}
+
+export default function NewReportPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12 text-gray-400">読み込み中...</div>}>
+      <NewReportInner />
+    </Suspense>
   )
 }

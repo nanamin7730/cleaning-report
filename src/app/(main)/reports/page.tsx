@@ -2,26 +2,51 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { CleaningReport, Property } from '@/lib/types'
+import type { Property } from '@/lib/types'
 import Link from 'next/link'
-import { Plus, FileText, ChevronRight, Calendar, Building2 } from 'lucide-react'
+import { Building2, ChevronRight, FileText, Calendar } from 'lucide-react'
 
-type ReportRow = CleaningReport & { properties: Property }
+type PropertyWithLast = Property & {
+  last_cleaned_at: string | null
+  report_count: number
+}
 
 export default function ReportsPage() {
   const supabase = createClient()
-  const [reports, setReports] = useState<ReportRow[]>([])
+  const [items, setItems] = useState<PropertyWithLast[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase
-      .from('cleaning_reports')
-      .select('*, properties(*)')
-      .order('cleaned_at', { ascending: false })
-      .then(({ data }) => {
-        setReports((data as ReportRow[]) ?? [])
-        setLoading(false)
+    const load = async () => {
+      const { data: props } = await supabase
+        .from('properties')
+        .select('*')
+        .order('name')
+      const { data: reports } = await supabase
+        .from('cleaning_reports')
+        .select('property_id, cleaned_at')
+        .order('cleaned_at', { ascending: false })
+
+      const byProp = new Map<string, { last: string | null; count: number }>()
+      ;(reports ?? []).forEach((r) => {
+        const cur = byProp.get(r.property_id)
+        if (!cur) {
+          byProp.set(r.property_id, { last: r.cleaned_at, count: 1 })
+        } else {
+          cur.count += 1
+          if (!cur.last || r.cleaned_at > cur.last) cur.last = r.cleaned_at
+        }
       })
+
+      const merged: PropertyWithLast[] = (props ?? []).map((p) => ({
+        ...p,
+        last_cleaned_at: byProp.get(p.id)?.last ?? null,
+        report_count: byProp.get(p.id)?.count ?? 0,
+      }))
+      setItems(merged)
+      setLoading(false)
+    }
+    load()
   }, [])
 
   const formatDate = (dateStr: string) =>
@@ -33,53 +58,50 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-          <FileText size={22} /> 清掃報告書
-        </h1>
-        <Link
-          href="/reports/new"
-          className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          <Plus size={16} /> 新規作成
-        </Link>
-      </div>
+      <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6">
+        <FileText size={22} /> 清掃報告書
+      </h1>
 
-      {reports.length === 0 ? (
+      <p className="text-sm text-gray-500 mb-4">
+        物件を選択して、報告書の登録・確認を行います。
+      </p>
+
+      {items.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <FileText size={48} className="mx-auto mb-3 opacity-20" />
-          <p className="font-medium">報告書がまだありません</p>
-          <p className="text-sm mt-1">「新規作成」から報告書を作成してください</p>
-          <Link
-            href="/reports/new"
-            className="inline-flex items-center gap-1 mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus size={16} /> 最初の報告書を作成
-          </Link>
+          <Building2 size={48} className="mx-auto mb-3 opacity-20" />
+          <p className="font-medium">物件が登録されていません</p>
+          <p className="text-sm mt-1">管理者に物件登録を依頼してください</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {reports.map((r) => (
+          {items.map((p) => (
             <Link
-              key={r.id}
-              href={`/reports/${r.id}`}
+              key={p.id}
+              href={`/reports/property/${p.id}`}
               className="block bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4"
             >
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Building2 size={14} className="text-gray-400 flex-shrink-0" />
-                    <span className="font-semibold text-gray-800 truncate">
-                      {r.properties?.name ?? '物件不明'}
-                    </span>
+                    <Building2 size={16} className="text-gray-400 flex-shrink-0" />
+                    <span className="font-semibold text-gray-800 truncate">{p.name}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar size={13} />
-                    <span>{formatDate(r.cleaned_at)}</span>
+                  <p className="text-xs text-gray-500 truncate ml-6">{p.address}</p>
+                  <div className="flex items-center gap-3 mt-2 ml-6 text-xs text-gray-500">
+                    {p.last_cleaned_at ? (
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        最終: {formatDate(p.last_cleaned_at)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">まだ報告書なし</span>
+                    )}
+                    {p.report_count > 0 && (
+                      <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                        {p.report_count}件
+                      </span>
+                    )}
                   </div>
-                  {r.notes && (
-                    <p className="text-xs text-gray-400 mt-1.5 truncate">{r.notes}</p>
-                  )}
                 </div>
                 <ChevronRight size={18} className="text-gray-400 ml-3 flex-shrink-0" />
               </div>

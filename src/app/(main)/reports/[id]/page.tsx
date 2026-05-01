@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CleaningReport, Property, ReportItem } from '@/lib/types'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft, FileDown, Trash2, Calendar, Building2, MapPin } from 'lucide-react'
+import { ChevronLeft, FileDown, Trash2, Calendar, Building2, MapPin, Pencil } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -57,6 +57,12 @@ export default function ReportDetailPage() {
           <ChevronLeft size={18} /> 一覧へ戻る
         </button>
         <div className="flex items-center gap-2">
+          <Link
+            href={`/reports/${id}/edit`}
+            className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200"
+          >
+            <Pencil size={15} /> 編集
+          </Link>
           <Link
             href={`/reports/${id}/pdf`}
             className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
