@@ -152,6 +152,14 @@ function NewReportInner() {
         })
       }
 
+      // Google Drive へ PDF を自動アップロード（バックグラウンド）
+      // 失敗してもユーザー体験を妨げないよう、エラーは握りつぶしてログだけ出す
+      fetch('/api/save-pdf-to-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId }),
+      }).catch((e) => console.error('Drive upload failed:', e))
+
       router.push(`/reports/${reportId}`)
     } catch (err) {
       alert('保存中にエラーが発生しました。もう一度お試しください。')

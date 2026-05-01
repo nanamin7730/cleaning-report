@@ -132,6 +132,13 @@ export default function EditReportPage() {
         }).eq('id', d.id)
       }
 
+      // 更新後の内容で Google Drive の PDF を再アップロード（バックグラウンド）
+      fetch('/api/save-pdf-to-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: id }),
+      }).catch((e) => console.error('Drive upload failed:', e))
+
       router.push(`/reports/${id}`)
     } catch (err) {
       alert('保存中にエラーが発生しました。')
