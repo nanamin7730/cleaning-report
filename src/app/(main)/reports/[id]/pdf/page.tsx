@@ -51,7 +51,7 @@ export default function PDFPage() {
       {/* 印刷時のスタイル */}
       <style>{`
         @media print {
-          @page { margin: 10mm; }
+          @page { margin: 8mm; size: A4; }
           .no-print, header, nav { display: none !important; }
           .print-area {
             margin: 0 !important;
@@ -59,8 +59,22 @@ export default function PDFPage() {
             box-shadow: none !important;
             border: none !important;
           }
-          body { background: white; }
+          body { background: white; font-size: 10pt; }
           .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+          /* 写真の高さを mm 指定で固定（4項目/ページに収まるサイズ） */
+          .pdf-photo-cell img,
+          .pdf-photo-cell .pdf-photo-empty { height: 45mm !important; }
+          /* 項目間のマージン詰め */
+          .pdf-item { margin-bottom: 3mm !important; }
+          /* タイトル・テーブル・余白を詰める */
+          .pdf-title { margin-bottom: 4mm !important; font-size: 13pt !important; }
+          .pdf-header-table { margin-bottom: 4mm !important; }
+          .pdf-header-table th,
+          .pdf-header-table td { padding: 1.5mm 2mm !important; }
+          .pdf-item-header { padding: 1.5mm 2mm !important; }
+          .pdf-item-table th { padding: 1mm 2mm !important; }
+          .pdf-photo-cell { padding: 1mm !important; }
+          .pdf-notes { padding: 1.5mm 2mm !important; }
         }
       `}</style>
 
@@ -90,12 +104,12 @@ export default function PDFPage() {
       {/* 報告書本体（印刷対象） */}
       <div className="print-area bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
         {/* タイトル */}
-        <h1 className="text-center text-xl font-bold text-gray-900 mb-6">
+        <h1 className="pdf-title text-center text-xl font-bold text-gray-900 mb-6">
           ■ 日常清掃報告書 ■
         </h1>
 
         {/* ヘッダーテーブル */}
-        <table className="w-full border-collapse border border-gray-700 text-sm mb-6">
+        <table className="pdf-header-table w-full border-collapse border border-gray-700 text-sm mb-6">
           <tbody>
             <tr>
               <th className="border border-gray-700 bg-gray-100 px-3 py-2 w-24 text-left font-semibold">
@@ -133,17 +147,17 @@ export default function PDFPage() {
         {/* 各項目のビフォーアフター */}
         <div className="space-y-4">
           {report.report_items.map((item) => (
-            <div key={item.id} className="break-inside-avoid">
+            <div key={item.id} className="pdf-item break-inside-avoid">
               {/* 項目名ヘッダー（薄い水色） */}
               <div
-                className="border border-gray-700 px-3 py-2 font-semibold text-gray-900 text-sm"
+                className="pdf-item-header border border-gray-700 px-3 py-2 font-semibold text-gray-900 text-sm"
                 style={{ backgroundColor: '#D9E8F5' }}
               >
                 【{item.item_name}】
               </div>
 
               {/* 作業前 / 作業後 ヘッダー（グレー） */}
-              <table className="w-full border-collapse text-sm">
+              <table className="pdf-item-table w-full border-collapse text-sm">
                 <thead>
                   <tr>
                     <th className="border border-gray-700 bg-gray-200 px-3 py-1.5 w-1/2 font-semibold">
@@ -156,7 +170,7 @@ export default function PDFPage() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="border border-gray-700 p-2 align-top">
+                    <td className="pdf-photo-cell border border-gray-700 p-2 align-top">
                       {item.before_photo_url ? (
                         <img
                           src={item.before_photo_url}
@@ -164,12 +178,12 @@ export default function PDFPage() {
                           className="w-full h-40 object-contain"
                         />
                       ) : (
-                        <div className="w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                        <div className="pdf-photo-empty w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
                           写真なし
                         </div>
                       )}
                     </td>
-                    <td className="border border-gray-700 p-2 align-top">
+                    <td className="pdf-photo-cell border border-gray-700 p-2 align-top">
                       {item.after_photo_url ? (
                         <img
                           src={item.after_photo_url}
@@ -177,7 +191,7 @@ export default function PDFPage() {
                           className="w-full h-40 object-contain"
                         />
                       ) : (
-                        <div className="w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                        <div className="pdf-photo-empty w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
                           写真なし
                         </div>
                       )}
@@ -187,7 +201,7 @@ export default function PDFPage() {
               </table>
 
               {item.item_notes && (
-                <div className="border border-t-0 border-gray-700 px-3 py-2 text-xs text-gray-700 bg-gray-50">
+                <div className="pdf-notes border border-t-0 border-gray-700 px-3 py-2 text-xs text-gray-700 bg-gray-50">
                   {item.item_notes}
                 </div>
               )}
