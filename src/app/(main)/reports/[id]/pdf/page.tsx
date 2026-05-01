@@ -34,10 +34,10 @@ export default function PDFPage() {
       })
   }, [id])
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('ja-JP', {
-      year: 'numeric', month: 'long', day: 'numeric',
-    })
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+  }
 
   const handlePrint = () => {
     window.print()
@@ -48,12 +48,18 @@ export default function PDFPage() {
 
   return (
     <>
-      {/* 印刷時に非表示にするUI */}
+      {/* 印刷時のスタイル */}
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          .print-area { margin: 0; padding: 0; }
+          .print-area {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
           body { background: white; }
+          .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
 
@@ -81,69 +87,108 @@ export default function PDFPage() {
       </div>
 
       {/* 報告書本体（印刷対象） */}
-      <div className="print-area bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+      <div className="print-area bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
         {/* タイトル */}
-        <div className="text-center border-b-2 border-gray-200 pb-4 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">清掃報告書</h1>
-        </div>
+        <h1 className="text-center text-xl font-bold text-gray-900 mb-6">
+          ■ 日常清掃報告書 ■
+        </h1>
 
-        {/* 基本情報 */}
-        <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm mb-8 border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <div className="flex gap-2">
-            <span className="text-gray-500 w-16 flex-shrink-0">物件名</span>
-            <span className="font-semibold text-gray-800">{report.properties?.name}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-gray-500 w-16 flex-shrink-0">清掃日</span>
-            <span className="font-semibold text-gray-800">{formatDate(report.cleaned_at)}</span>
-          </div>
-          <div className="flex gap-2 col-span-2">
-            <span className="text-gray-500 w-16 flex-shrink-0">住　所</span>
-            <span className="font-semibold text-gray-800">{report.properties?.address}</span>
-          </div>
-        </div>
+        {/* ヘッダーテーブル */}
+        <table className="w-full border-collapse border border-gray-700 text-sm mb-6">
+          <tbody>
+            <tr>
+              <th className="border border-gray-700 bg-gray-100 px-3 py-2 w-24 text-left font-semibold">
+                物件名
+              </th>
+              <td className="border border-gray-700 px-3 py-2" colSpan={3}>
+                {report.properties?.name}
+              </td>
+            </tr>
+            <tr>
+              <th className="border border-gray-700 bg-gray-100 px-3 py-2 text-left font-semibold">
+                所在地
+              </th>
+              <td className="border border-gray-700 px-3 py-2">
+                {report.properties?.address}
+              </td>
+              <th className="border border-gray-700 bg-gray-100 px-3 py-2 w-24 text-left font-semibold">
+                作業内容
+              </th>
+              <td className="border border-gray-700 px-3 py-2">
+                {report.work_content || '掃き拭き掃除'}
+              </td>
+            </tr>
+            <tr>
+              <th className="border border-gray-700 bg-gray-100 px-3 py-2 text-left font-semibold">
+                作業日時
+              </th>
+              <td className="border border-gray-700 px-3 py-2" colSpan={3}>
+                {formatDate(report.cleaned_at)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        {/* ビフォーアフター写真 */}
-        <div className="space-y-6">
-          {report.report_items.map((item, i) => (
-            <div key={item.id} className="border border-gray-200 rounded-lg p-4 break-inside-avoid">
-              <h3 className="font-bold text-gray-800 mb-3 pb-2 border-b border-gray-100 text-sm">
-                {i + 1}. {item.item_name}
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-bold text-blue-600 mb-2">BEFORE</p>
-                  {item.before_photo_url ? (
-                    <img
-                      src={item.before_photo_url}
-                      alt="before"
-                      className="w-full h-44 object-cover rounded border border-gray-200"
-                    />
-                  ) : (
-                    <div className="w-full h-44 bg-gray-100 rounded border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">
-                      写真なし
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-green-600 mb-2">AFTER</p>
-                  {item.after_photo_url ? (
-                    <img
-                      src={item.after_photo_url}
-                      alt="after"
-                      className="w-full h-44 object-cover rounded border border-gray-200"
-                    />
-                  ) : (
-                    <div className="w-full h-44 bg-gray-100 rounded border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400">
-                      写真なし
-                    </div>
-                  )}
-                </div>
+        {/* 各項目のビフォーアフター */}
+        <div className="space-y-4">
+          {report.report_items.map((item) => (
+            <div key={item.id} className="break-inside-avoid">
+              {/* 項目名ヘッダー（薄い水色） */}
+              <div
+                className="border border-gray-700 px-3 py-2 font-semibold text-gray-900 text-sm"
+                style={{ backgroundColor: '#D9E8F5' }}
+              >
+                【{item.item_name}】
               </div>
+
+              {/* 作業前 / 作業後 ヘッダー（グレー） */}
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-700 bg-gray-200 px-3 py-1.5 w-1/2 font-semibold">
+                      作業前
+                    </th>
+                    <th className="border border-gray-700 bg-gray-200 px-3 py-1.5 w-1/2 font-semibold">
+                      作業後
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-700 p-2 align-top">
+                      {item.before_photo_url ? (
+                        <img
+                          src={item.before_photo_url}
+                          alt="作業前"
+                          className="w-full h-56 object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-56 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                          写真なし
+                        </div>
+                      )}
+                    </td>
+                    <td className="border border-gray-700 p-2 align-top">
+                      {item.after_photo_url ? (
+                        <img
+                          src={item.after_photo_url}
+                          alt="作業後"
+                          className="w-full h-56 object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-56 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                          写真なし
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
               {item.item_notes && (
-                <p className="text-xs text-gray-500 mt-2 bg-gray-50 rounded p-2">
+                <div className="border border-t-0 border-gray-700 px-3 py-2 text-xs text-gray-700 bg-gray-50">
                   {item.item_notes}
-                </p>
+                </div>
               )}
             </div>
           ))}
@@ -151,9 +196,16 @@ export default function PDFPage() {
 
         {/* 備考 */}
         {report.notes && (
-          <div className="mt-6 border border-gray-200 rounded-lg p-4">
-            <p className="text-xs font-bold text-gray-500 mb-2">備考</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{report.notes}</p>
+          <div className="mt-6 break-inside-avoid">
+            <div
+              className="border border-gray-700 px-3 py-2 font-semibold text-gray-900 text-sm"
+              style={{ backgroundColor: '#D9E8F5' }}
+            >
+              【備考】
+            </div>
+            <div className="border border-t-0 border-gray-700 px-3 py-3 text-sm text-gray-800 whitespace-pre-wrap">
+              {report.notes}
+            </div>
           </div>
         )}
       </div>

@@ -51,6 +51,7 @@ export type Database = {
           id: string
           property_id: string
           cleaned_at: string
+          work_content: string | null
           notes: string | null
           created_by: string | null
           created_at: string
@@ -60,6 +61,7 @@ export type Database = {
           id?: string
           property_id: string
           cleaned_at: string
+          work_content?: string | null
           notes?: string | null
           created_by?: string | null
           created_at?: string
@@ -67,6 +69,7 @@ export type Database = {
         }
         Update: {
           cleaned_at?: string
+          work_content?: string | null
           notes?: string | null
           updated_at?: string
         }

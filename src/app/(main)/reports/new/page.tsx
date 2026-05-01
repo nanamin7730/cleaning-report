@@ -24,6 +24,7 @@ export default function NewReportPage() {
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([])
   const [cleanedAt, setCleanedAt] = useState(new Date().toISOString().split('T')[0])
+  const [workContent, setWorkContent] = useState('掃き拭き掃除')
   const [notes, setNotes] = useState('')
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([])
   const [saving, setSaving] = useState(false)
@@ -97,6 +98,7 @@ export default function NewReportPage() {
         .insert({
           property_id: selectedPropertyId,
           cleaned_at: cleanedAt,
+          work_content: workContent || null,
           notes: notes || null,
           created_by: user?.id,
         })
@@ -250,6 +252,17 @@ export default function NewReportPage() {
               value={cleanedAt}
               onChange={(e) => setCleanedAt(e.target.value)}
               required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">作業内容</label>
+            <input
+              type="text"
+              value={workContent}
+              onChange={(e) => setWorkContent(e.target.value)}
+              placeholder="例：掃き拭き掃除"
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
