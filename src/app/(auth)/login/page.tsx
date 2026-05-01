@@ -9,32 +9,20 @@ export default function LoginPage() {
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setMessage('')
 
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        setMessage('確認メールを送信しました。メールを確認してください。')
-      }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError('メールアドレスまたはパスワードが正しくありません')
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError('メールアドレスまたはパスワードが正しくありません')
-      } else {
-        router.push('/reports')
-        router.refresh()
-      }
+      router.push('/reports')
+      router.refresh()
     }
     setLoading(false)
   }
@@ -72,15 +60,12 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="6文字以上"
+              placeholder="パスワード"
             />
           </div>
 
           {error && (
             <p className="text-red-500 text-sm bg-red-50 rounded-lg p-3">{error}</p>
-          )}
-          {message && (
-            <p className="text-green-600 text-sm bg-green-50 rounded-lg p-3">{message}</p>
           )}
 
           <button
@@ -88,26 +73,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium text-base hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? '処理中...' : isSignUp ? 'アカウント作成' : 'ログイン'}
+            {loading ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
 
-        {!isSignUp && (
-          <p className="text-center mt-3 text-sm">
-            <a href="/forgot-password" className="text-gray-400 hover:text-blue-600 underline">
-              パスワードを忘れた方はこちら
-            </a>
-          </p>
-        )}
-
-        <p className="text-center mt-4 text-sm text-gray-600">
-          {isSignUp ? 'すでにアカウントをお持ちの方は' : 'アカウントをお持ちでない方は'}
-          <button
-            onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage('') }}
-            className="text-blue-600 ml-1 underline"
-          >
-            {isSignUp ? 'ログイン' : '新規登録'}
-          </button>
+        <p className="text-center mt-4 text-sm">
+          <a href="/forgot-password" className="text-gray-400 hover:text-blue-600 underline">
+            パスワードを忘れた方はこちら
+          </a>
         </p>
       </div>
     </div>

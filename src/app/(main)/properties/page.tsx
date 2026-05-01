@@ -4,10 +4,21 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Property } from '@/lib/types'
 import Link from 'next/link'
-import { Plus, Building2, ChevronRight, Trash2 } from 'lucide-react'
+import { Plus, Building2, ChevronRight, Trash2, ShieldAlert } from 'lucide-react'
+import { useAdmin } from '@/lib/useAdmin'
 
 export default function PropertiesPage() {
   const supabase = createClient()
+  const { isAdmin, loading: adminLoading } = useAdmin()
+
+  if (!adminLoading && !isAdmin) {
+    return (
+      <div className="text-center py-20">
+        <ShieldAlert size={48} className="mx-auto mb-4 text-red-300" />
+        <p className="text-gray-500 font-medium">このページは管理者のみアクセスできます</p>
+      </div>
+    )
+  }
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)

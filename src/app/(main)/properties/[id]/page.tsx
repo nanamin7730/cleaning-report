@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Property, InspectionItem } from '@/lib/types'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, GripVertical, Trash2, ChevronLeft, Settings } from 'lucide-react'
+import { Plus, GripVertical, Trash2, ChevronLeft, Settings, ShieldAlert } from 'lucide-react'
+import { useAdmin } from '@/lib/useAdmin'
 
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { isAdmin, loading: adminLoading } = useAdmin()
   const router = useRouter()
   const supabase = createClient()
   const [property, setProperty] = useState<Property | null>(null)
@@ -50,6 +52,14 @@ export default function PropertyDetailPage() {
 
   if (loading) return <div className="text-center py-12 text-gray-400">読み込み中...</div>
   if (!property) return <div className="text-center py-12 text-gray-400">物件が見つかりません</div>
+  if (!adminLoading && !isAdmin) {
+    return (
+      <div className="text-center py-20">
+        <ShieldAlert size={48} className="mx-auto mb-4 text-red-300" />
+        <p className="text-gray-500 font-medium">このページは管理者のみアクセスできます</p>
+      </div>
+    )
+  }
 
   return (
     <div>
