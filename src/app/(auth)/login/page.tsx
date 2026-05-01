@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -17,13 +16,31 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('メールアドレスまたはパスワードが正しくありません')
-    } else {
+    // まずスタッフアカウントで試みる
+    const { error: staffError } = await supabase.auth.signInWithPassword({
+      email: 'staff@cleaning-staff.local',
+      password,
+    })
+
+    if (!staffError) {
       router.push('/reports')
       router.refresh()
+      return
     }
+
+    // 次に管理者アカウントで試みる
+    const { error: adminError } = await supabase.auth.signInWithPassword({
+      email: 'admin@cleaning-staff.local',
+      password,
+    })
+
+    if (!adminError) {
+      router.push('/reports')
+      router.refresh()
+      return
+    }
+
+    setError('パスワードが正しくありません')
     setLoading(false)
   }
 
@@ -38,20 +55,6 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              メールアドレス
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="example@email.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
               パスワード
             </label>
             <input
@@ -59,8 +62,9 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoFocus
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="パスワード"
+              placeholder="パスワードを入力"
             />
           </div>
 
@@ -76,12 +80,6 @@ export default function LoginPage() {
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
-
-        <p className="text-center mt-4 text-sm">
-          <a href="/forgot-password" className="text-gray-400 hover:text-blue-600 underline">
-            パスワードを忘れた方はこちら
-          </a>
-        </p>
       </div>
     </div>
   )
