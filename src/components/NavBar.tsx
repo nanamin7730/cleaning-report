@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { FileText, Building2, LogOut, ShieldCheck } from 'lucide-react'
+import { FileText, Building2, LogOut, HardDrive } from 'lucide-react'
 import { useAdmin } from '@/lib/useAdmin'
 
 export default function NavBar() {
@@ -25,6 +25,7 @@ export default function NavBar() {
   const adminLinks = [
     { href: '/reports', label: '報告書', icon: FileText },
     { href: '/properties', label: '物件管理', icon: Building2 },
+    { href: '/admin/storage', label: 'ストレージ', icon: HardDrive },
   ]
 
   const links = isAdmin ? adminLinks : userLinks
@@ -84,6 +85,17 @@ export default function NavBar() {
           >
             <Building2 size={22} />
             物件管理
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="/admin/storage"
+            className={`flex-1 flex flex-col items-center py-3 text-xs gap-1 ${
+              pathname.startsWith('/admin/storage') ? 'text-blue-600' : 'text-gray-500'
+            }`}
+          >
+            <HardDrive size={22} />
+            ストレージ
           </Link>
         )}
 
