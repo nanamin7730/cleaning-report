@@ -53,13 +53,20 @@ export default function PDFPage() {
         @media print {
           @page { margin: 8mm; size: A4; }
           .no-print, header, nav { display: none !important; }
+          /* 親レイアウトの余白・最低高をリセット（空白ページ防止） */
+          html, body { background: white; font-size: 10pt; margin: 0 !important; padding: 0 !important; height: auto !important; }
+          body > * { min-height: 0 !important; }
+          main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+          .min-h-screen { min-height: 0 !important; }
           .print-area {
             margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
           }
-          body { background: white; font-size: 10pt; }
+          /* 最後の項目の下マージンも消す */
+          .pdf-item:last-child { margin-bottom: 0 !important; }
+          .pdf-items { margin-bottom: 0 !important; }
           .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
           /* 写真の高さを mm 指定で固定（4項目/ページに収まるサイズ） */
           .pdf-photo-cell img,
