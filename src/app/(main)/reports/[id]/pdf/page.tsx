@@ -51,6 +51,7 @@ export default function PDFPage() {
       {/* 印刷時のスタイル */}
       <style>{`
         @media print {
+          @page { margin: 10mm; }
           .no-print, header, nav { display: none !important; }
           .print-area {
             margin: 0 !important;
@@ -160,10 +161,10 @@ export default function PDFPage() {
                         <img
                           src={item.before_photo_url}
                           alt="作業前"
-                          className="w-full h-56 object-contain"
+                          className="w-full h-40 object-contain"
                         />
                       ) : (
-                        <div className="w-full h-56 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                        <div className="w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
                           写真なし
                         </div>
                       )}
@@ -173,10 +174,10 @@ export default function PDFPage() {
                         <img
                           src={item.after_photo_url}
                           alt="作業後"
-                          className="w-full h-56 object-contain"
+                          className="w-full h-40 object-contain"
                         />
                       ) : (
-                        <div className="w-full h-56 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                        <div className="w-full h-40 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
                           写真なし
                         </div>
                       )}
