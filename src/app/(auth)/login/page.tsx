@@ -92,6 +92,14 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {!isSignUp && (
+          <p className="text-center mt-3 text-sm">
+            <a href="/forgot-password" className="text-gray-400 hover:text-blue-600 underline">
+              パスワードを忘れた方はこちら
+            </a>
+          </p>
+        )}
+
         <p className="text-center mt-4 text-sm text-gray-600">
           {isSignUp ? 'すでにアカウントをお持ちの方は' : 'アカウントをお持ちでない方は'}
           <button
