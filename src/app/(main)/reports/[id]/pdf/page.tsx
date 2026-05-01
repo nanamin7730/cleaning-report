@@ -63,9 +63,11 @@ export default function PDFPage() {
           .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
           /* 写真の高さを mm 指定で固定（4項目/ページに収まるサイズ） */
           .pdf-photo-cell img,
-          .pdf-photo-cell .pdf-photo-empty { height: 45mm !important; }
+          .pdf-photo-cell .pdf-photo-empty { height: 42mm !important; }
+          /* space-y-4 など Tailwind の縦余白を完全リセット */
+          .pdf-items > * + * { margin-top: 0 !important; }
           /* 項目間のマージン詰め */
-          .pdf-item { margin-bottom: 3mm !important; }
+          .pdf-item { margin-bottom: 2mm !important; margin-top: 0 !important; }
           /* タイトル・テーブル・余白を詰める */
           .pdf-title { margin-bottom: 4mm !important; font-size: 13pt !important; }
           .pdf-header-table { margin-bottom: 4mm !important; }
@@ -145,7 +147,7 @@ export default function PDFPage() {
         </table>
 
         {/* 各項目のビフォーアフター */}
-        <div className="space-y-4">
+        <div className="pdf-items space-y-4">
           {report.report_items.map((item) => (
             <div key={item.id} className="pdf-item break-inside-avoid">
               {/* 項目名ヘッダー（薄い水色） */}
