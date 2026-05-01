@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+  outputFileTracingIncludes: {
+    '/api/save-pdf-to-drive': ['./node_modules/@sparticuz/chromium/**/*'],
+  },
 }
 
 export default nextConfig
