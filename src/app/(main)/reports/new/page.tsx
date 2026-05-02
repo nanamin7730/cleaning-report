@@ -4,12 +4,15 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Property, InspectionItem } from '@/lib/types'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Camera, Image as ImageIcon, X, CheckCircle } from 'lucide-react'
+import { ChevronLeft, Camera, Image as ImageIcon, X, CheckCircle, Pencil, Check, Trash2, ChevronUp, ChevronDown, Plus } from 'lucide-react'
 import Image from 'next/image'
 import { compressImage } from '@/lib/compressImage'
 
 type ItemDraft = {
-  inspection_item_id: string
+  // 一時ID（React のキー用）。DBの inspection_items.id ではない
+  draft_id: string
+  // マスタの inspection_items.id（新規追加項目は null）
+  inspection_item_id: string | null
   item_name: string
   before_file: File | null
   before_preview: string | null
@@ -31,6 +34,10 @@ function NewReportInner() {
   const [notes, setNotes] = useState('')
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([])
   const [saving, setSaving] = useState(false)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [newItemName, setNewItemName] = useState('')
+  const [addingItem, setAddingItem] = useState(false)
 
   useEffect(() => {
     supabase.from('properties').select('*').order('created_at', { ascending: false })
@@ -51,6 +58,7 @@ function NewReportInner() {
     const items = data ?? []
     setInspectionItems(items)
     setItemDrafts(items.map((item) => ({
+      draft_id: item.id,
       inspection_item_id: item.id,
       item_name: item.name,
       before_file: null,
@@ -88,6 +96,68 @@ function NewReportInner() {
         ? { ...d, [`${type}_file`]: null, [`${type}_preview`]: null }
         : d
     ))
+  }
+
+  // 撮影項目の追加（この報告書のみに反映、マスタには影響しない）
+  const handleAddItem = () => {
+    if (!newItemName.trim()) return
+    setAddingItem(true)
+    setItemDrafts((prev) => [
+      ...prev,
+      {
+        draft_id: `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        inspection_item_id: null,
+        item_name: newItemName.trim(),
+        before_file: null,
+        before_preview: null,
+        after_file: null,
+        after_preview: null,
+        item_notes: '',
+      },
+    ])
+    setNewItemName('')
+    setAddingItem(false)
+  }
+
+  // 撮影項目の削除（この報告書のみに反映、マスタには影響しない）
+  const handleDeleteItem = (index: number) => {
+    const draft = itemDrafts[index]
+    if (!confirm(`「${draft.item_name}」をこの報告書から外しますか？\n（マスタの撮影項目には影響しません）`)) return
+    setItemDrafts((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // 撮影項目名の編集開始
+  const startEditItem = (draftId: string, name: string) => {
+    setEditingItemId(draftId)
+    setEditingName(name)
+  }
+
+  const cancelEditItem = () => {
+    setEditingItemId(null)
+    setEditingName('')
+  }
+
+  // 編集確定（ローカルだけ更新、マスタには影響しない）
+  const saveEditItem = () => {
+    if (!editingItemId || !editingName.trim()) return
+    setItemDrafts((prev) =>
+      prev.map((d) =>
+        d.draft_id === editingItemId
+          ? { ...d, item_name: editingName.trim() }
+          : d
+      )
+    )
+    setEditingItemId(null)
+    setEditingName('')
+  }
+
+  // 撮影項目の並び替え（ローカルだけ更新、マスタには影響しない）
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= itemDrafts.length) return
+    const newDrafts = [...itemDrafts]
+    ;[newDrafts[index], newDrafts[newIndex]] = [newDrafts[newIndex], newDrafts[index]]
+    setItemDrafts(newDrafts)
   }
 
   const uploadPhoto = async (file: File, path: string) => {
@@ -327,10 +397,86 @@ function NewReportInner() {
           <div className="space-y-4">
             <h2 className="font-semibold text-gray-700">ビフォーアフター写真</h2>
             {itemDrafts.map((draft, i) => (
-              <div key={draft.inspection_item_id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <h3 className="font-semibold text-gray-800 mb-3">
-                  {i + 1}. {draft.item_name}
-                </h3>
+              <div key={draft.draft_id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                {/* 項目名と編集・並び替えコントロール */}
+                <div className="flex items-center gap-1 mb-3 pb-2 border-b border-gray-100">
+                  {/* 並び替えボタン */}
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => moveItem(i, 'up')}
+                      disabled={i === 0}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20 p-0.5"
+                      aria-label="上へ"
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveItem(i, 'down')}
+                      disabled={i === itemDrafts.length - 1}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20 p-0.5"
+                      aria-label="下へ"
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                  </div>
+                  <span className="text-gray-500 text-sm w-6 text-right">{i + 1}.</span>
+
+                  {editingItemId === draft.draft_id ? (
+                    <>
+                      <input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            saveEditItem()
+                          }
+                          if (e.key === 'Escape') cancelEditItem()
+                        }}
+                        autoFocus
+                        className="flex-1 border border-blue-300 rounded px-2 py-1 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveEditItem}
+                        className="text-green-500 hover:text-green-700 p-1"
+                        aria-label="保存"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditItem}
+                        className="text-gray-400 hover:text-gray-700 p-1"
+                        aria-label="キャンセル"
+                      >
+                        <X size={18} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="flex-1 font-semibold text-gray-800">{draft.item_name}</h3>
+                      <button
+                        type="button"
+                        onClick={() => startEditItem(draft.draft_id, draft.item_name)}
+                        className="text-gray-400 hover:text-blue-600 p-1"
+                        aria-label="編集"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(i)}
+                        className="text-red-400 hover:text-red-600 p-1"
+                        aria-label="削除"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
                 <div className="flex gap-3 mb-3">
                   <PhotoUploader
                     preview={draft.before_preview}
@@ -361,10 +507,35 @@ function NewReportInner() {
           </div>
         )}
 
-        {selectedPropertyId && inspectionItems.length === 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-sm text-orange-700">
-            この物件には撮影項目が設定されていません。
-            「物件」ページからこの物件の撮影項目を追加してください。
+        {/* 撮影項目を追加するフォーム（物件選択後に常に表示） */}
+        {selectedPropertyId && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <p className="text-sm text-gray-500 mb-2">
+              この報告書だけに撮影項目を追加（マスタには影響しません）
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddItem()
+                  }
+                }}
+                placeholder="項目名を入力（例：玄関）"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddItem}
+                disabled={addingItem || !newItemName.trim()}
+                className="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+              >
+                <Plus size={16} /> 追加
+              </button>
+            </div>
           </div>
         )}
 
