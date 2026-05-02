@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Property, CleaningReport } from '@/lib/types'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft, Plus, Calendar, ChevronRight, Building2, MapPin } from 'lucide-react'
+import { ChevronLeft, Plus, Calendar, ChevronRight, Building2, MapPin, Settings } from 'lucide-react'
 
 export default function PropertyReportsPage() {
   const { propertyId } = useParams<{ propertyId: string }>()
@@ -61,9 +61,17 @@ export default function PropertyReportsPage() {
       {/* 新規登録ボタン */}
       <Link
         href={`/reports/new?propertyId=${propertyId}`}
-        className="w-full bg-blue-600 text-white rounded-xl py-4 font-semibold text-base hover:bg-blue-700 flex items-center justify-center gap-2 mb-6"
+        className="w-full bg-blue-600 text-white rounded-xl py-4 font-semibold text-base hover:bg-blue-700 flex items-center justify-center gap-2 mb-3"
       >
         <Plus size={20} /> 新しい報告書を作成
+      </Link>
+
+      {/* 撮影項目の編集ボタン */}
+      <Link
+        href={`/properties/${propertyId}`}
+        className="w-full border border-gray-200 text-gray-700 rounded-xl py-3 font-medium text-sm hover:bg-gray-50 flex items-center justify-center gap-2 mb-6"
+      >
+        <Settings size={18} /> 撮影項目を編集・並び替え
       </Link>
 
       {/* 過去の報告書一覧 */}
