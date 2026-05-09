@@ -242,6 +242,7 @@ export default function EditReportPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportId: id }),
+        keepalive: true,
       }).catch((e) => console.error('Drive upload failed:', e))
 
       router.push(`/reports/${id}`)
