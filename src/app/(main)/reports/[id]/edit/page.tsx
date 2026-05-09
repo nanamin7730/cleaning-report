@@ -178,13 +178,27 @@ export default function EditReportPage() {
     file: File | null
   ) => {
     if (!file) return
-    const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
-    const preview = URL.createObjectURL(compressed)
+    // 1. まず先に元ファイルで即時セット（圧縮中に消えても写真は確実に反映）
+    const initialPreview = URL.createObjectURL(file)
     setDrafts((prev) => prev.map((d, i) =>
       i === index
-        ? { ...d, [`${type}_file`]: compressed, [`${type}_preview`]: preview }
+        ? { ...d, [`${type}_file`]: file, [`${type}_preview`]: initialPreview }
         : d
     ))
+
+    // 2. その後、圧縮を試みて成功したら差し替え
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
+      if (compressed === file) return
+      const preview = URL.createObjectURL(compressed)
+      setDrafts((prev) => prev.map((d, i) =>
+        i === index
+          ? { ...d, [`${type}_file`]: compressed, [`${type}_preview`]: preview }
+          : d
+      ))
+    } catch (err) {
+      console.error('圧縮失敗 - 元ファイルを使用:', err)
+    }
   }
 
   const removeExistingPhoto = (index: number, type: 'before' | 'after') => {

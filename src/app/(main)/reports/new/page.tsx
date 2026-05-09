@@ -170,14 +170,27 @@ function NewReportInner() {
     file: File | null
   ) => {
     if (!file) return
-    // 圧縮
-    const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
-    const preview = URL.createObjectURL(compressed)
+    // 1. まず先に元ファイルで即時セット（圧縮中に消えても写真は確実に反映）
+    const initialPreview = URL.createObjectURL(file)
     setItemDrafts((prev) => prev.map((d, i) =>
       i === index
-        ? { ...d, [`${type}_file`]: compressed, [`${type}_preview`]: preview }
+        ? { ...d, [`${type}_file`]: file, [`${type}_preview`]: initialPreview }
         : d
     ))
+
+    // 2. その後、圧縮を試みて成功したら差し替え（失敗しても元ファイルが残るので安全）
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
+      if (compressed === file) return // 圧縮されなかった（HEIC等）→ そのまま
+      const preview = URL.createObjectURL(compressed)
+      setItemDrafts((prev) => prev.map((d, i) =>
+        i === index
+          ? { ...d, [`${type}_file`]: compressed, [`${type}_preview`]: preview }
+          : d
+      ))
+    } catch (err) {
+      console.error('圧縮失敗 - 元ファイルを使用:', err)
+    }
   }
 
   const clearPhoto = (index: number, type: 'before' | 'after') => {
