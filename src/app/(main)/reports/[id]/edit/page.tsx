@@ -25,6 +25,111 @@ type EditDraft = {
   item_notes: string
 }
 
+// 写真エディタ（親コンポーネント外で定義して再生成を防ぐ）
+function PhotoEditor({
+  existingUrl,
+  preview,
+  onChange,
+  onRemove,
+  label,
+  color,
+}: {
+  existingUrl: string | null
+  preview: string | null
+  onChange: (f: File) => void
+  onRemove: () => void
+  label: string
+  color: 'blue' | 'green'
+}) {
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const albumRef = useRef<HTMLInputElement>(null)
+  const showImg = preview || existingUrl
+  const colorClass =
+    color === 'blue' ? 'border-blue-200 text-blue-600' : 'border-green-200 text-green-600'
+
+  return (
+    <div className="flex-1">
+      <p className={`text-xs font-bold mb-1 ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>
+        {label}
+      </p>
+      {showImg ? (
+        <div className="relative">
+          <Image
+            src={showImg}
+            alt={label}
+            width={300}
+            height={200}
+            className="w-full h-32 object-cover rounded-lg border"
+          />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow"
+          >
+            <X size={14} className="text-gray-600" />
+          </button>
+          <div className="flex gap-1 mt-1">
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
+            >
+              <Camera size={12} /> 撮り直し
+            </button>
+            <button
+              type="button"
+              onClick={() => albumRef.current?.click()}
+              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
+            >
+              <ImageIcon size={12} /> 選び直し
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          >
+            <Camera size={16} /> カメラで撮影
+          </button>
+          <button
+            type="button"
+            onClick={() => albumRef.current?.click()}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          >
+            <ImageIcon size={16} /> アルバムから選択
+          </button>
+        </div>
+      )}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onChange(f)
+          e.target.value = ''
+        }}
+      />
+      <input
+        ref={albumRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onChange(f)
+          e.target.value = ''
+        }}
+      />
+    </div>
+  )
+}
+
 export default function EditReportPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -145,109 +250,6 @@ export default function EditReportPage() {
       console.error(err)
     }
     setSaving(false)
-  }
-
-  const PhotoEditor = ({
-    existingUrl,
-    preview,
-    onChange,
-    onRemove,
-    label,
-    color,
-  }: {
-    existingUrl: string | null
-    preview: string | null
-    onChange: (f: File) => void
-    onRemove: () => void
-    label: string
-    color: 'blue' | 'green'
-  }) => {
-    const cameraRef = useRef<HTMLInputElement>(null)
-    const albumRef = useRef<HTMLInputElement>(null)
-    const showImg = preview || existingUrl
-    const colorClass = color === 'blue' ? 'border-blue-200 text-blue-600' : 'border-green-200 text-green-600'
-
-    return (
-      <div className="flex-1">
-        <p className={`text-xs font-bold mb-1 ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>
-          {label}
-        </p>
-        {showImg ? (
-          <div className="relative">
-            <Image
-              src={showImg}
-              alt={label}
-              width={300}
-              height={200}
-              className="w-full h-32 object-cover rounded-lg border"
-            />
-            <button
-              type="button"
-              onClick={onRemove}
-              className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow"
-            >
-              <X size={14} className="text-gray-600" />
-            </button>
-            <div className="flex gap-1 mt-1">
-              <button
-                type="button"
-                onClick={() => cameraRef.current?.click()}
-                className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
-              >
-                <Camera size={12} /> 撮り直し
-              </button>
-              <button
-                type="button"
-                onClick={() => albumRef.current?.click()}
-                className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
-              >
-                <ImageIcon size={12} /> 選び直し
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
-            >
-              <Camera size={16} /> カメラで撮影
-            </button>
-            <button
-              type="button"
-              onClick={() => albumRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
-            >
-              <ImageIcon size={16} /> アルバムから選択
-            </button>
-          </div>
-        )}
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) onChange(f)
-            e.target.value = ''
-          }}
-        />
-        <input
-          ref={albumRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) onChange(f)
-            e.target.value = ''
-          }}
-        />
-      </div>
-    )
   }
 
   if (loading) return <div className="text-center py-12 text-gray-400">読み込み中...</div>

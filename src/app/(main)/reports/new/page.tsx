@@ -21,6 +21,96 @@ type ItemDraft = {
   item_notes: string
 }
 
+// 写真アップローダー（親コンポーネント外で定義して再生成を防ぐ）
+function PhotoUploader({
+  preview,
+  onChange,
+  onClear,
+  label,
+  color,
+}: {
+  preview: string | null
+  onChange: (f: File) => void
+  onClear: () => void
+  label: string
+  color: 'blue' | 'green'
+}) {
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const albumRef = useRef<HTMLInputElement>(null)
+  const colorClass =
+    color === 'blue'
+      ? 'border-blue-200 text-blue-600'
+      : 'border-green-200 text-green-600'
+
+  return (
+    <div className="flex-1">
+      <p className={`text-xs font-bold mb-1 ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>
+        {label}
+      </p>
+      {preview ? (
+        <div className="relative">
+          <Image
+            src={preview}
+            alt={label}
+            width={300}
+            height={200}
+            className="w-full h-32 object-cover rounded-lg border"
+          />
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow"
+          >
+            <X size={14} className="text-gray-600" />
+          </button>
+        </div>
+      ) : (
+        <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          >
+            <Camera size={16} /> カメラで撮影
+          </button>
+          <button
+            type="button"
+            onClick={() => albumRef.current?.click()}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          >
+            <ImageIcon size={16} /> アルバムから選択
+          </button>
+        </div>
+      )}
+      {/* カメラ用 */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onChange(f)
+          e.target.value = ''
+        }}
+      />
+      {/* アルバム用 */}
+      <input
+        ref={albumRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onChange(f)
+          e.target.value = ''
+        }}
+      />
+    </div>
+  )
+}
+
 function NewReportInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -236,94 +326,6 @@ function NewReportInner() {
       console.error(err)
     }
     setSaving(false)
-  }
-
-  const PhotoUploader = ({
-    preview,
-    onChange,
-    onClear,
-    label,
-    color,
-  }: {
-    preview: string | null
-    onChange: (f: File) => void
-    onClear: () => void
-    label: string
-    color: 'blue' | 'green'
-  }) => {
-    const cameraRef = useRef<HTMLInputElement>(null)
-    const albumRef = useRef<HTMLInputElement>(null)
-    const colorClass = color === 'blue'
-      ? 'border-blue-200 text-blue-600'
-      : 'border-green-200 text-green-600'
-
-    return (
-      <div className="flex-1">
-        <p className={`text-xs font-bold mb-1 ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>
-          {label}
-        </p>
-        {preview ? (
-          <div className="relative">
-            <Image
-              src={preview}
-              alt={label}
-              width={300}
-              height={200}
-              className="w-full h-32 object-cover rounded-lg border"
-            />
-            <button
-              type="button"
-              onClick={onClear}
-              className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow"
-            >
-              <X size={14} className="text-gray-600" />
-            </button>
-          </div>
-        ) : (
-          <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
-            >
-              <Camera size={16} /> カメラで撮影
-            </button>
-            <button
-              type="button"
-              onClick={() => albumRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
-            >
-              <ImageIcon size={16} /> アルバムから選択
-            </button>
-          </div>
-        )}
-        {/* カメラ用 */}
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) onChange(f)
-            e.target.value = ''
-          }}
-        />
-        {/* アルバム用 */}
-        <input
-          ref={albumRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) onChange(f)
-            e.target.value = ''
-          }}
-        />
-      </div>
-    )
   }
 
   return (
