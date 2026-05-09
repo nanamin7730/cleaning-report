@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Property, InspectionItem } from '@/lib/types'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, Settings, ChevronUp, ChevronDown, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, Settings, ChevronUp, ChevronDown, Pencil, Check, X, Building2 } from 'lucide-react'
 
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +17,11 @@ export default function PropertyDetailPage() {
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  // 物件情報の編集
+  const [editingProperty, setEditingProperty] = useState(false)
+  const [propName, setPropName] = useState('')
+  const [propAddress, setPropAddress] = useState('')
+  const [savingProperty, setSavingProperty] = useState(false)
 
   const fetchData = async () => {
     const [{ data: prop }, { data: itemsData }] = await Promise.all([
@@ -29,6 +34,34 @@ export default function PropertyDetailPage() {
   }
 
   useEffect(() => { fetchData() }, [id])
+
+  const startEditProperty = () => {
+    if (!property) return
+    setPropName(property.name)
+    setPropAddress(property.address)
+    setEditingProperty(true)
+  }
+
+  const cancelEditProperty = () => {
+    setEditingProperty(false)
+    setPropName('')
+    setPropAddress('')
+  }
+
+  const saveEditProperty = async () => {
+    if (!propName.trim() || !propAddress.trim()) {
+      alert('物件名と住所は必須です')
+      return
+    }
+    setSavingProperty(true)
+    await supabase
+      .from('properties')
+      .update({ name: propName.trim(), address: propAddress.trim() })
+      .eq('id', id)
+    setSavingProperty(false)
+    setEditingProperty(false)
+    fetchData()
+  }
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,8 +139,61 @@ export default function PropertyDetailPage() {
       </button>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
-        <h1 className="text-xl font-bold text-gray-800">{property.name}</h1>
-        <p className="text-gray-500 mt-1">{property.address}</p>
+        {editingProperty ? (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">物件名 *</label>
+              <input
+                value={propName}
+                onChange={(e) => setPropName(e.target.value)}
+                placeholder="例：グリーンマンション101"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">住所 *</label>
+              <input
+                value={propAddress}
+                onChange={(e) => setPropAddress(e.target.value)}
+                placeholder="例：東京都渋谷区〇〇1-2-3"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={saveEditProperty}
+                disabled={savingProperty}
+                className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1"
+              >
+                <Check size={16} /> {savingProperty ? '保存中...' : '保存'}
+              </button>
+              <button
+                onClick={cancelEditProperty}
+                disabled={savingProperty}
+                className="flex-1 border border-gray-300 text-gray-600 rounded-lg py-2.5 font-medium hover:bg-gray-50 flex items-center justify-center gap-1"
+              >
+                <X size={16} /> キャンセル
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Building2 size={20} className="text-gray-400 flex-shrink-0" />
+                {property.name}
+              </h1>
+              <p className="text-gray-500 mt-1 ml-7">{property.address}</p>
+            </div>
+            <button
+              onClick={startEditProperty}
+              className="text-gray-400 hover:text-blue-600 flex items-center gap-1 text-sm flex-shrink-0"
+              aria-label="物件を編集"
+            >
+              <Pencil size={16} /> 編集
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
