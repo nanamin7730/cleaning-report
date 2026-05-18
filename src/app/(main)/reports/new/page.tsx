@@ -21,7 +21,8 @@ type ItemDraft = {
   item_notes: string
 }
 
-// 写真アップローダー（親コンポーネント外で定義して再生成を防ぐ）
+// 写真アップローダー（label ベースで iOS Safari でも安定動作）
+let __uploaderCounter = 0
 function PhotoUploader({
   preview,
   onChange,
@@ -35,12 +36,25 @@ function PhotoUploader({
   label: string
   color: 'blue' | 'green'
 }) {
-  const cameraRef = useRef<HTMLInputElement>(null)
-  const albumRef = useRef<HTMLInputElement>(null)
+  // 各 input に固有 ID（label で参照するため）
+  const idRef = useRef<string>('')
+  if (!idRef.current) {
+    __uploaderCounter += 1
+    idRef.current = `pu_${__uploaderCounter}`
+  }
+  const cameraId = `${idRef.current}_cam`
+  const albumId = `${idRef.current}_alb`
+
   const colorClass =
     color === 'blue'
       ? 'border-blue-200 text-blue-600'
       : 'border-green-200 text-green-600'
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) onChange(f)
+    e.target.value = ''
+  }
 
   return (
     <div className="flex-1">
@@ -66,46 +80,35 @@ function PhotoUploader({
         </div>
       ) : (
         <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          <label
+            htmlFor={cameraId}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50 cursor-pointer"
           >
             <Camera size={16} /> カメラで撮影
-          </button>
-          <button
-            type="button"
-            onClick={() => albumRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          </label>
+          <label
+            htmlFor={albumId}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50 cursor-pointer"
           >
             <ImageIcon size={16} /> アルバムから選択
-          </button>
+          </label>
         </div>
       )}
-      {/* カメラ用 */}
+      {/* 入力欄（常時DOM上に存在、label からトリガー） */}
       <input
-        ref={cameraRef}
+        id={cameraId}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onChange(f)
-          e.target.value = ''
-        }}
+        onChange={handleInput}
       />
-      {/* アルバム用 */}
       <input
-        ref={albumRef}
+        id={albumId}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onChange(f)
-          e.target.value = ''
-        }}
+        onChange={handleInput}
       />
     </div>
   )

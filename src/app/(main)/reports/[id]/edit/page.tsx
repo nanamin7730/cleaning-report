@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CleaningReport, Property, ReportItem } from '@/lib/types'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft, Camera, Image as ImageIcon, X, CheckCircle } from 'lucide-react'
+import { ChevronLeft, Camera, Image as ImageIcon, X, CheckCircle, Pencil, Check, Trash2, ChevronUp, ChevronDown, Plus } from 'lucide-react'
 import Image from 'next/image'
 import { compressImage } from '@/lib/compressImage'
 
@@ -25,7 +25,8 @@ type EditDraft = {
   item_notes: string
 }
 
-// 写真エディタ（親コンポーネント外で定義して再生成を防ぐ）
+// 写真エディタ（label ベースで iOS Safari でも安定動作）
+let __editorCounter = 0
 function PhotoEditor({
   existingUrl,
   preview,
@@ -41,11 +42,23 @@ function PhotoEditor({
   label: string
   color: 'blue' | 'green'
 }) {
-  const cameraRef = useRef<HTMLInputElement>(null)
-  const albumRef = useRef<HTMLInputElement>(null)
+  const idRef = useRef<string>('')
+  if (!idRef.current) {
+    __editorCounter += 1
+    idRef.current = `pe_${__editorCounter}`
+  }
+  const cameraId = `${idRef.current}_cam`
+  const albumId = `${idRef.current}_alb`
+
   const showImg = preview || existingUrl
   const colorClass =
     color === 'blue' ? 'border-blue-200 text-blue-600' : 'border-green-200 text-green-600'
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) onChange(f)
+    e.target.value = ''
+  }
 
   return (
     <div className="flex-1">
@@ -69,62 +82,50 @@ function PhotoEditor({
             <X size={14} className="text-gray-600" />
           </button>
           <div className="flex gap-1 mt-1">
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
+            <label
+              htmlFor={cameraId}
+              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1 cursor-pointer"
             >
               <Camera size={12} /> 撮り直し
-            </button>
-            <button
-              type="button"
-              onClick={() => albumRef.current?.click()}
-              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
+            </label>
+            <label
+              htmlFor={albumId}
+              className="flex-1 text-xs py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1 cursor-pointer"
             >
               <ImageIcon size={12} /> 選び直し
-            </button>
+            </label>
           </div>
         </div>
       ) : (
         <div className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-stretch p-2 gap-1 ${colorClass}`}>
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          <label
+            htmlFor={cameraId}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50 cursor-pointer"
           >
             <Camera size={16} /> カメラで撮影
-          </button>
-          <button
-            type="button"
-            onClick={() => albumRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50"
+          </label>
+          <label
+            htmlFor={albumId}
+            className="flex-1 flex items-center justify-center gap-1 text-xs bg-white rounded hover:bg-gray-50 cursor-pointer"
           >
             <ImageIcon size={16} /> アルバムから選択
-          </button>
+          </label>
         </div>
       )}
       <input
-        ref={cameraRef}
+        id={cameraId}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onChange(f)
-          e.target.value = ''
-        }}
+        onChange={handleInput}
       />
       <input
-        ref={albumRef}
+        id={albumId}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onChange(f)
-          e.target.value = ''
-        }}
+        onChange={handleInput}
       />
     </div>
   )
@@ -141,6 +142,12 @@ export default function EditReportPage() {
   const [drafts, setDrafts] = useState<EditDraft[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // 削除した既存 report_items の ID を保持（保存時にDBから削除する）
+  const [removedItemIds, setRemovedItemIds] = useState<string[]>([])
+  // 項目編集用
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [newItemName, setNewItemName] = useState('')
 
   useEffect(() => {
     supabase
@@ -209,6 +216,69 @@ export default function EditReportPage() {
     ))
   }
 
+  // 撮影項目を追加（保存時にDBへinsert）
+  const handleAddItem = () => {
+    if (!newItemName.trim()) return
+    setDrafts((prev) => [
+      ...prev,
+      {
+        // 一時ID: tmp_ プレフィックスで新規と既存を区別
+        id: `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        item_name: newItemName.trim(),
+        before_url: null,
+        after_url: null,
+        before_file: null,
+        after_file: null,
+        before_preview: null,
+        after_preview: null,
+        item_notes: '',
+      },
+    ])
+    setNewItemName('')
+  }
+
+  // 撮影項目を削除（保存時にDBから削除）
+  const handleDeleteItem = (index: number) => {
+    const draft = drafts[index]
+    if (!confirm(`「${draft.item_name}」をこの報告書から削除しますか？`)) return
+    // 既存項目（tmp_ プレフィックスがない）は削除リストに追加
+    if (!draft.id.startsWith('tmp_')) {
+      setRemovedItemIds((prev) => [...prev, draft.id])
+    }
+    setDrafts((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // 項目名の編集
+  const startEditItem = (id: string, name: string) => {
+    setEditingItemId(id)
+    setEditingName(name)
+  }
+
+  const cancelEditItem = () => {
+    setEditingItemId(null)
+    setEditingName('')
+  }
+
+  const saveEditItem = () => {
+    if (!editingItemId || !editingName.trim()) return
+    setDrafts((prev) =>
+      prev.map((d) =>
+        d.id === editingItemId ? { ...d, item_name: editingName.trim() } : d
+      )
+    )
+    setEditingItemId(null)
+    setEditingName('')
+  }
+
+  // 項目の並び替え（ローカルのみ。保存時にsort_orderを再計算）
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= drafts.length) return
+    const newDrafts = [...drafts]
+    ;[newDrafts[index], newDrafts[newIndex]] = [newDrafts[newIndex], newDrafts[index]]
+    setDrafts(newDrafts)
+  }
+
   const uploadPhoto = async (file: File, path: string) => {
     const { error } = await supabase.storage
       .from('report-photos')
@@ -231,7 +301,15 @@ export default function EditReportPage() {
 
       const timestamp = Date.now()
 
-      // 各項目を更新
+      // 削除された既存項目を report_items から削除
+      if (removedItemIds.length > 0) {
+        await supabase
+          .from('report_items')
+          .delete()
+          .in('id', removedItemIds)
+      }
+
+      // 各項目を保存（既存はupdate、新規はinsert、sort_orderも反映）
       for (let i = 0; i < drafts.length; i++) {
         const d = drafts[i]
         let beforeUrl = d.before_url
@@ -244,11 +322,27 @@ export default function EditReportPage() {
           afterUrl = await uploadPhoto(d.after_file, `${id}/${timestamp}_${i}_after.jpg`)
         }
 
-        await supabase.from('report_items').update({
-          before_photo_url: beforeUrl,
-          after_photo_url: afterUrl,
-          item_notes: d.item_notes || null,
-        }).eq('id', d.id)
+        if (d.id.startsWith('tmp_')) {
+          // 新規追加項目: insert
+          await supabase.from('report_items').insert({
+            report_id: id,
+            inspection_item_id: null,
+            item_name: d.item_name,
+            before_photo_url: beforeUrl,
+            after_photo_url: afterUrl,
+            item_notes: d.item_notes || null,
+            sort_order: i,
+          })
+        } else {
+          // 既存項目: update
+          await supabase.from('report_items').update({
+            item_name: d.item_name,
+            before_photo_url: beforeUrl,
+            after_photo_url: afterUrl,
+            item_notes: d.item_notes || null,
+            sort_order: i,
+          }).eq('id', d.id)
+        }
       }
 
       // 更新後の内容で Google Drive の PDF を再アップロード（バックグラウンド）
@@ -319,12 +413,88 @@ export default function EditReportPage() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="font-semibold text-gray-700">写真の編集</h2>
+          <h2 className="font-semibold text-gray-700">撮影項目・写真の編集</h2>
           {drafts.map((d, i) => (
             <div key={d.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-3">
-                {i + 1}. {d.item_name}
-              </h3>
+              {/* 項目名と編集・並び替えコントロール */}
+              <div className="flex items-center gap-1 mb-3 pb-2 border-b border-gray-100">
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => moveItem(i, 'up')}
+                    disabled={i === 0}
+                    className="text-gray-400 hover:text-gray-700 disabled:opacity-20 p-0.5"
+                    aria-label="上へ"
+                  >
+                    <ChevronUp size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveItem(i, 'down')}
+                    disabled={i === drafts.length - 1}
+                    className="text-gray-400 hover:text-gray-700 disabled:opacity-20 p-0.5"
+                    aria-label="下へ"
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
+                <span className="text-gray-500 text-sm w-6 text-right">{i + 1}.</span>
+
+                {editingItemId === d.id ? (
+                  <>
+                    <input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          saveEditItem()
+                        }
+                        if (e.key === 'Escape') cancelEditItem()
+                      }}
+                      autoFocus
+                      className="flex-1 border border-blue-300 rounded px-2 py-1 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={saveEditItem}
+                      className="text-green-500 hover:text-green-700 p-1"
+                      aria-label="保存"
+                    >
+                      <Check size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditItem}
+                      className="text-gray-400 hover:text-gray-700 p-1"
+                      aria-label="キャンセル"
+                    >
+                      <X size={18} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="flex-1 font-semibold text-gray-800">{d.item_name}</h3>
+                    <button
+                      type="button"
+                      onClick={() => startEditItem(d.id, d.item_name)}
+                      className="text-gray-400 hover:text-blue-600 p-1"
+                      aria-label="編集"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(i)}
+                      className="text-red-400 hover:text-red-600 p-1"
+                      aria-label="削除"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+
               <div className="flex gap-3 mb-3">
                 <PhotoEditor
                   existingUrl={d.before_url}
@@ -354,6 +524,36 @@ export default function EditReportPage() {
               />
             </div>
           ))}
+        </div>
+
+        {/* 撮影項目を追加するフォーム */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <p className="text-sm text-gray-500 mb-2">
+            この報告書に項目を追加（マスタには影響しません）
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAddItem()
+                }
+              }}
+              placeholder="項目名を入力（例：玄関）"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddItem}
+              disabled={!newItemName.trim()}
+              className="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              <Plus size={16} /> 追加
+            </button>
+          </div>
         </div>
 
         <button
