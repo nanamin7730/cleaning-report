@@ -179,12 +179,16 @@ export async function GET(req: NextRequest) {
 }
 
 // 管理者画面から手動実行（POST）
+// 容量ベースで古い順に削除し、70% まで戻す（autoCleanup と同じ動作）
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  const result = await manualCleanup(supabase)
+  const result = await autoCleanup(supabase)
   console.log('[manual-cleanup] result:', result)
   return NextResponse.json({ success: true, ...result })
 }
+
+// 旧式の時間ベース削除（参照用に残しておく）
+void manualCleanup
