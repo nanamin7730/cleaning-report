@@ -1,10 +1,10 @@
-// 画像をリサイズ・圧縮して 200〜500KB 程度の File として返す
+// 画像をリサイズ・圧縮して 80〜150KB 程度の File として返す
 // 失敗した場合は元のファイルをそのまま返す（HEIC など、ブラウザでデコードできない形式対策）
 export async function compressImage(
   file: File,
   options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
 ): Promise<File> {
-  const { maxWidth = 1600, maxHeight = 1600, quality = 0.8 } = options
+  const { maxWidth = 1200, maxHeight = 1200, quality = 0.65 } = options
 
   // 画像でない場合はそのまま返す
   if (!file.type.startsWith('image/')) return file

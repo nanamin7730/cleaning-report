@@ -183,7 +183,7 @@ function NewReportInner() {
 
     // 2. その後、圧縮を試みて成功したら差し替え（失敗しても元ファイルが残るので安全）
     try {
-      const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.8 })
+      const compressed = await compressImage(file, { maxWidth: 1200, quality: 0.65 })
       if (compressed === file) return // 圧縮されなかった（HEIC等）→ そのまま
       const preview = URL.createObjectURL(compressed)
       setItemDrafts((prev) => prev.map((d, i) =>
