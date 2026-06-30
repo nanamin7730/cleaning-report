@@ -39,28 +39,46 @@ export default function StoragePage() {
     if (!adminLoading && isAdmin) fetchStats()
   }, [adminLoading, isAdmin])
 
+  const [progress, setProgress] = useState('')
+
   const handleManualCleanup = async () => {
     if (!stats) return
     if (
       !confirm(
-        `古い順に報告書20件分の写真を削除します。\n\n※ PDFはGoogle Driveに保存済みなので、データは消えません。\n※ 報告書のレコードは残ります（写真URLだけクリア）。\n※ 容量がまだ多い場合は、もう一度ボタンを押して削除を続けてください。\n\n本当に実行しますか？`
+        `Supabase 上の全ての写真を削除します。\n\n※ PDFはGoogle Driveに保存済みなので、データは消えません。\n※ 報告書のレコードは残ります（写真URLだけクリア）。\n※ 完了まで数分かかります。途中でブラウザを閉じないでください。\n\n本当に実行しますか？`
       )
     )
       return
     setCleaning(true)
+    setProgress('開始しています...')
+    let totalReports = 0
+    let totalFiles = 0
+    let iteration = 0
+    const maxIterations = 30
+
     try {
-      const res = await fetch('/api/cleanup-old-photos', { method: 'POST' })
-      const data = await res.json()
-      if (data.action === 'no_reports') {
-        alert('削除対象がありません')
-      } else {
-        alert(`削除完了：${data.reportsProcessed}件の報告書 / ${data.deletedFileCount}枚の写真を削除しました。\n\nまだ容量が多い場合は、もう一度ボタンを押してください。`)
+      while (iteration < maxIterations) {
+        iteration++
+        setProgress(`削除中... ${iteration}回目（合計 ${totalReports}件 / ${totalFiles}枚 削除済み）`)
+        const res = await fetch('/api/cleanup-old-photos', { method: 'POST' })
+        const data = await res.json()
+
+        if (data.action === 'done' || data.reportsProcessed === 0) {
+          break
+        }
+        totalReports += data.reportsProcessed || 0
+        totalFiles += data.deletedFileCount || 0
+
+        // 残りがない場合も終了
+        if (data.remaining === 0) break
       }
+      alert(`完了：${totalReports}件の報告書 / ${totalFiles}枚の写真を削除しました`)
       await fetchStats()
     } catch (err) {
-      alert('削除中にエラーが発生しました')
+      alert(`削除中にエラーが発生しました（途中まで完了：${totalReports}件 / ${totalFiles}枚）。\nもう一度ボタンを押すと続きから処理されます。`)
       console.error(err)
     }
+    setProgress('')
     setCleaning(false)
   }
 
@@ -154,14 +172,19 @@ export default function StoragePage() {
 
       {/* 手動削除セクション */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 className="font-semibold text-gray-700 mb-2">写真を手動削除（バッチ処理）</h2>
+        <h2 className="font-semibold text-gray-700 mb-2">Supabase の全写真を削除</h2>
         <p className="text-sm text-gray-500 mb-4">
-          押すたびに <b>古い報告書 20 件分</b> の写真を削除します。
-          <br />
-          容量がまだ多い場合は、もう一度押して繰り返し削除してください。
+          ボタンを押すと <b>自動で繰り返し</b>、Supabase 上の全写真を削除します。
           <br />
           報告書のレコードは残り、PDFはGoogle Driveに保存済みなのでデータは消えません。
+          <br />
+          ※ 完了まで数分かかります。途中でブラウザを閉じないでください。
         </p>
+        {progress && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-sm text-blue-700">
+            {progress}
+          </div>
+        )}
 
         <div className="flex gap-2">
           <button
@@ -170,7 +193,7 @@ export default function StoragePage() {
             className="flex-1 bg-red-500 text-white rounded-lg py-2.5 font-medium hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Trash2 size={16} />
-            {cleaning ? '削除中...（20〜40秒）' : '古い順に20件分削除'}
+            {cleaning ? '削除中...' : '全ての写真を削除'}
           </button>
           <button
             onClick={fetchStats}

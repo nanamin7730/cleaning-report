@@ -47,21 +47,24 @@ async function listAllFiles(supabase: SupabaseClient): Promise<FileInfo[]> {
   return result
 }
 
-// バッチクリーンアップ：古い順に最大 batchSize 件の報告書の写真を削除
+// バッチクリーンアップ：Storage に存在するフォルダ（=写真がある報告書）を最大 batchSize 件削除
+// 削除済みフォルダは自然と消えるので、ループ呼び出しに対応
 async function batchCleanup(supabase: SupabaseClient, batchSize: number = 20) {
-  // 報告書を古い順に取得
-  const { data: reports } = await supabase
-    .from('cleaning_reports')
-    .select('id, cleaned_at')
-    .order('cleaned_at', { ascending: true })
-    .limit(batchSize)
+  // Storage 上の写真フォルダを取得（実際に写真がある報告書だけが対象になる）
+  const { data: folders } = await supabase.storage
+    .from('report-photos')
+    .list('', { limit: batchSize })
 
-  if (!reports || reports.length === 0) {
+  // フォルダ（=サブディレクトリ）だけ抽出。ルートにあるファイルはスキップ
+  const targetFolders = (folders || []).filter((f) => f.name && !f.id)
+
+  if (targetFolders.length === 0) {
     return {
-      action: 'no_reports',
+      action: 'done',
       deletedFileCount: 0,
       reportsProcessed: 0,
-      message: '削除対象の報告書がありません',
+      remaining: 0,
+      message: '削除対象の写真がありません',
     }
   }
 
@@ -69,25 +72,22 @@ async function batchCleanup(supabase: SupabaseClient, batchSize: number = 20) {
   const processedReports: string[] = []
   const errors: string[] = []
 
-  for (const report of reports) {
+  for (const folder of targetFolders) {
+    const reportId = folder.name
     try {
       const { data: files } = await supabase.storage
         .from('report-photos')
-        .list(report.id, { limit: 1000 })
+        .list(reportId, { limit: 1000 })
 
-      if (!files || files.length === 0) {
-        // 写真がない報告書もカウント（次回別の報告書が対象になる）
-        processedReports.push(report.id)
-        continue
-      }
+      if (!files || files.length === 0) continue
 
-      const paths = files.map((f) => `${report.id}/${f.name}`)
+      const paths = files.map((f) => `${reportId}/${f.name}`)
       const { error: removeError } = await supabase.storage
         .from('report-photos')
         .remove(paths)
 
       if (removeError) {
-        errors.push(`${report.id}: ${removeError.message}`)
+        errors.push(`${reportId}: ${removeError.message}`)
         continue
       }
 
@@ -95,19 +95,26 @@ async function batchCleanup(supabase: SupabaseClient, batchSize: number = 20) {
       await supabase
         .from('report_items')
         .update({ before_photo_url: null, after_photo_url: null })
-        .eq('report_id', report.id)
+        .eq('report_id', reportId)
 
       deletedFileCount += paths.length
-      processedReports.push(report.id)
+      processedReports.push(reportId)
     } catch (e: any) {
-      errors.push(`${report.id}: ${e.message}`)
+      errors.push(`${reportId}: ${e.message}`)
     }
   }
+
+  // 残りのフォルダ数を概算（次の呼び出しの目安）
+  const { data: remainingFolders } = await supabase.storage
+    .from('report-photos')
+    .list('', { limit: 1000 })
+  const remaining = (remainingFolders || []).filter((f) => f.name && !f.id).length
 
   return {
     action: 'batch_cleaned',
     deletedFileCount,
     reportsProcessed: processedReports.length,
+    remaining,
     errors: errors.length > 0 ? errors : undefined,
   }
 }
