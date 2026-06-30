@@ -345,14 +345,8 @@ export default function EditReportPage() {
         }
       }
 
-      // 更新後の内容で Google Drive の PDF を再アップロード（バックグラウンド）
-      fetch('/api/save-pdf-to-drive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId: id }),
-        keepalive: true,
-      }).catch((e) => console.error('Drive upload failed:', e))
-
+      // 注意：Driveへの自動アップロードはやめて、報告書詳細画面の
+      // 「Drive に送信」ボタンから手動で行うようにした
       router.push(`/reports/${id}`)
     } catch (err) {
       alert('保存中にエラーが発生しました。')

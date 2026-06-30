@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CleaningReport, Property, ReportItem } from '@/lib/types'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft, FileDown, Trash2, Calendar, Building2, MapPin, Pencil } from 'lucide-react'
+import { ChevronLeft, FileDown, Trash2, Calendar, Building2, MapPin, Pencil, Send, CheckCircle } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -19,6 +19,8 @@ export default function ReportDetailPage() {
   const supabase = createClient()
   const [report, setReport] = useState<FullReport | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sendingToDrive, setSendingToDrive] = useState(false)
+  const [driveSent, setDriveSent] = useState(false)
 
   useEffect(() => {
     supabase
@@ -40,6 +42,30 @@ export default function ReportDetailPage() {
     if (!confirm('この報告書を削除しますか？（写真も含めて完全に削除されます）')) return
     await supabase.from('cleaning_reports').delete().eq('id', id)
     router.push('/reports')
+  }
+
+  const handleSendToDrive = async () => {
+    if (!confirm('PDFを生成して Google Drive に送信しますか？\n（数十秒かかります）')) return
+    setSendingToDrive(true)
+    setDriveSent(false)
+    try {
+      const res = await fetch('/api/save-pdf-to-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: id }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setDriveSent(true)
+        alert(`Google Drive に送信しました！\nファイル名：${data.fileName}`)
+      } else {
+        alert(`送信に失敗しました：${data.error || '不明なエラー'}`)
+      }
+    } catch (err) {
+      alert('送信中にエラーが発生しました')
+      console.error(err)
+    }
+    setSendingToDrive(false)
   }
 
   const formatDate = (dateStr: string) =>
@@ -155,12 +181,32 @@ export default function ReportDetailPage() {
         ))}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-3">
+        {/* Google Drive 送信ボタン */}
+        <button
+          onClick={handleSendToDrive}
+          disabled={sendingToDrive}
+          className={`w-full flex items-center justify-center gap-2 rounded-xl py-4 font-semibold text-base disabled:opacity-50 ${
+            driveSent
+              ? 'bg-green-600 text-white hover:bg-green-700'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          {sendingToDrive ? (
+            <>送信中...（30〜60秒）</>
+          ) : driveSent ? (
+            <><CheckCircle size={20} /> Google Drive に送信済み（再送信する）</>
+          ) : (
+            <><Send size={20} /> Google Drive に PDF を送信</>
+          )}
+        </button>
+
+        {/* ローカルPDF出力 */}
         <Link
           href={`/reports/${id}/pdf`}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-4 font-semibold text-base hover:bg-blue-700"
+          className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 rounded-xl py-3 font-medium text-sm hover:bg-gray-200"
         >
-          <FileDown size={20} /> PDFで書き出す
+          <FileDown size={18} /> PDFで書き出す（印刷・ローカル保存用）
         </Link>
       </div>
     </div>

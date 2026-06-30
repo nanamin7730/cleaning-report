@@ -328,15 +328,8 @@ function NewReportInner() {
         })
       }
 
-      // Google Drive へ PDF を自動アップロード（バックグラウンド）
-      // ページ遷移しても fetch を継続させるため keepalive: true を指定
-      fetch('/api/save-pdf-to-drive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId }),
-        keepalive: true,
-      }).catch((e) => console.error('Drive upload failed:', e))
-
+      // 注意：Driveへの自動アップロードはやめて、報告書詳細画面の
+      // 「Drive に送信」ボタンから手動で行うようにした
       router.push(`/reports/${reportId}`)
     } catch (err) {
       alert('保存中にエラーが発生しました。もう一度お試しください。')
