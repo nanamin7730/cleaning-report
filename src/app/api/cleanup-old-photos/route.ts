@@ -47,6 +47,71 @@ async function listAllFiles(supabase: SupabaseClient): Promise<FileInfo[]> {
   return result
 }
 
+// バッチクリーンアップ：古い順に最大 batchSize 件の報告書の写真を削除
+async function batchCleanup(supabase: SupabaseClient, batchSize: number = 20) {
+  // 報告書を古い順に取得
+  const { data: reports } = await supabase
+    .from('cleaning_reports')
+    .select('id, cleaned_at')
+    .order('cleaned_at', { ascending: true })
+    .limit(batchSize)
+
+  if (!reports || reports.length === 0) {
+    return {
+      action: 'no_reports',
+      deletedFileCount: 0,
+      reportsProcessed: 0,
+      message: '削除対象の報告書がありません',
+    }
+  }
+
+  let deletedFileCount = 0
+  const processedReports: string[] = []
+  const errors: string[] = []
+
+  for (const report of reports) {
+    try {
+      const { data: files } = await supabase.storage
+        .from('report-photos')
+        .list(report.id, { limit: 1000 })
+
+      if (!files || files.length === 0) {
+        // 写真がない報告書もカウント（次回別の報告書が対象になる）
+        processedReports.push(report.id)
+        continue
+      }
+
+      const paths = files.map((f) => `${report.id}/${f.name}`)
+      const { error: removeError } = await supabase.storage
+        .from('report-photos')
+        .remove(paths)
+
+      if (removeError) {
+        errors.push(`${report.id}: ${removeError.message}`)
+        continue
+      }
+
+      // 写真URLをDBから消す
+      await supabase
+        .from('report_items')
+        .update({ before_photo_url: null, after_photo_url: null })
+        .eq('report_id', report.id)
+
+      deletedFileCount += paths.length
+      processedReports.push(report.id)
+    } catch (e: any) {
+      errors.push(`${report.id}: ${e.message}`)
+    }
+  }
+
+  return {
+    action: 'batch_cleaned',
+    deletedFileCount,
+    reportsProcessed: processedReports.length,
+    errors: errors.length > 0 ? errors : undefined,
+  }
+}
+
 async function autoCleanup(supabase: SupabaseClient) {
   // 1. 全ファイルを一覧 + 合計サイズを計算
   const allFiles = await listAllFiles(supabase)
@@ -179,16 +244,17 @@ export async function GET(req: NextRequest) {
 }
 
 // 管理者画面から手動実行（POST）
-// 容量ベースで古い順に削除し、70% まで戻す（autoCleanup と同じ動作）
+// バッチで古い順に20件の報告書ずつ削除する
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  const result = await autoCleanup(supabase)
+  const result = await batchCleanup(supabase, 20)
   console.log('[manual-cleanup] result:', result)
   return NextResponse.json({ success: true, ...result })
 }
 
-// 旧式の時間ベース削除（参照用に残しておく）
+// 参照用に残しておく
 void manualCleanup
+void autoCleanup
