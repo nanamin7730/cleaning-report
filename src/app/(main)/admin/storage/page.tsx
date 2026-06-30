@@ -43,7 +43,7 @@ export default function StoragePage() {
     if (!stats) return
     if (
       !confirm(
-        `${stats.retentionMonths}ヶ月以上前（${stats.thresholdDate}より前）の写真を削除します。\n\n対象: ${stats.oldReportsCount}件の報告書 / 約${stats.oldPhotosCount}枚の写真\n\n※ PDFはGoogle Driveに保存済みなので、データは消えません。\n※ 報告書のレコード自体は残ります。\n\n本当に実行しますか？`
+        `古い写真を、ストレージが70%を切るまで削除します。\n\n※ PDFはGoogle Driveに保存済みなので、データは消えません。\n※ 報告書のレコードは残ります（写真URLだけクリア）。\n※ 処理には1〜2分かかります。\n\n本当に実行しますか？`
       )
     )
       return
@@ -51,7 +51,11 @@ export default function StoragePage() {
     try {
       const res = await fetch('/api/cleanup-old-photos', { method: 'POST' })
       const data = await res.json()
-      alert(`削除完了：${data.deletedFileCount}枚の写真を削除しました`)
+      if (data.action === 'skipped') {
+        alert(`削除不要：現在 ${data.usagePercent}% で、しきい値以下です`)
+      } else {
+        alert(`削除完了：${data.deletedFileCount}枚の写真を削除しました\n使用率：${data.usagePercentBefore}% → ${data.usagePercentAfter}%`)
+      }
       await fetchStats()
     } catch (err) {
       alert('削除中にエラーが発生しました')
@@ -150,34 +154,21 @@ export default function StoragePage() {
 
       {/* 手動削除セクション */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 className="font-semibold text-gray-700 mb-2">古い写真を手動削除</h2>
+        <h2 className="font-semibold text-gray-700 mb-2">写真を手動削除</h2>
         <p className="text-sm text-gray-500 mb-4">
-          {stats.retentionMonths}ヶ月以上前（{stats.thresholdDate} より前）の写真をまとめて削除できます。
+          押すと、ストレージが <b>70%</b> を切るまで古い写真から順に削除します。
+          <br />
+          報告書のレコードは残り、PDFはGoogle Driveに保存済みなのでデータは消えません。
         </p>
-
-        <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
-          <div className="flex justify-between mb-1">
-            <span className="text-gray-600">対象の報告書</span>
-            <span className="font-semibold">{stats.oldReportsCount} 件</span>
-          </div>
-          <div className="flex justify-between mb-1">
-            <span className="text-gray-600">削除可能な写真</span>
-            <span className="font-semibold">約 {stats.oldPhotosCount} 枚</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">推定削除サイズ</span>
-            <span className="font-semibold">約 {stats.estimatedSizeMB} MB</span>
-          </div>
-        </div>
 
         <div className="flex gap-2">
           <button
             onClick={handleManualCleanup}
-            disabled={cleaning || stats.oldReportsCount === 0}
+            disabled={cleaning}
             className="flex-1 bg-red-500 text-white rounded-lg py-2.5 font-medium hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Trash2 size={16} />
-            {cleaning ? '削除中...' : '古い写真を削除'}
+            {cleaning ? '削除中...（1〜2分かかります）' : '古い写真を削除'}
           </button>
           <button
             onClick={fetchStats}
