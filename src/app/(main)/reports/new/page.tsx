@@ -328,8 +328,15 @@ function NewReportInner() {
         })
       }
 
-      // 注意：Driveへの自動アップロードはやめて、報告書詳細画面の
-      // 「Drive に送信」ボタンから手動で行うようにした
+      // 新規作成時は自動でDriveに送信（編集時は詳細画面の手動ボタン）
+      // keepalive: true で画面遷移してもリクエストが継続する
+      fetch('/api/save-pdf-to-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId }),
+        keepalive: true,
+      }).catch((err) => console.error('Drive自動送信失敗:', err))
+
       router.push(`/reports/${reportId}`)
     } catch (err) {
       alert('保存中にエラーが発生しました。もう一度お試しください。')
